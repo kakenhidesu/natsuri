@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# natsuri - A launcher and distribution manager for natsu.
+#
+# 这个脚本只做一件事: 找到 java, 把 natsuri.jar 跑起来。
+# 真正的逻辑全在 jar 里 —— 脚本越薄, 两个平台上的行为就越一致。
+#
+# 用 exec 而不是普通调用: 这样当前 shell 进程**被替换**成 JVM, 于是
+#   - Ctrl+C 直接送到 JVM (中间没有一层会先死掉的 shell),
+#   - 退出码原样就是 JVM 的退出码, 不需要再传一次。
+
+set -e
+
+# 解析脚本自身所在目录 (跟随符号链接)。natsuri 默认把这个目录当成运行目录。
+PRG="$0"
+while [ -h "$PRG" ]; do
+    ls=$(ls -ld "$PRG")
+    link=$(expr "$ls" : '.*-> \(.*\)$')
+    case "$link" in
+        /*) PRG="$link" ;;
+        *) PRG=$(dirname "$PRG")/"$link" ;;
+    esac
+done
+APP_HOME=$(cd "$(dirname "$PRG")" >/dev/null && pwd)
+
+# 找 java: NATSURI_JAVA > JAVA_HOME > PATH。
+# 注意这只是**启动器自己**用的 java; natsu 子进程用哪个由 natsuri.json 的 java.path 与
+# 发行清单的 javaMin 决定 (见 natsuri doctor 的输出)。
+#
+# 两个变量都既接受 JDK 目录, 也接受 java 可执行文件本身 —— 与 natsuri.cmd 和
+# natsuri.json 的 java.path 保持同一套语义, 免得同一份配置在两个平台上行为不同。
+resolve_java() {
+    # $1 = 目录或可执行文件, $2 = 变量名 (只为出错时说清楚)
+    if [ -x "$1/bin/java" ]; then JAVACMD="$1/bin/java"; return 0; fi
+    if [ -x "$1/java" ]; then JAVACMD="$1/java"; return 0; fi
+    if [ -x "$1" ]; then JAVACMD="$1"; return 0; fi
+    echo "natsuri: $2 指向 '$1', 那里没有可执行的 java。" >&2
+    echo "natsuri: 改对它, 或者取消设置让它退回 PATH。" >&2
+    exit 1
+}
+
+JAVACMD=""
+if [ -n "${NATSURI_JAVA:-}" ]; then
+    resolve_java "$NATSURI_JAVA" NATSURI_JAVA
+elif [ -n "${JAVA_HOME:-}" ]; then
+    resolve_java "$JAVA_HOME" JAVA_HOME
+else
+    JAVACMD="java"
+fi
+
+if [ "$JAVACMD" = "java" ] && ! command -v java >/dev/null 2>&1; then
+    echo "natsuri: 在 PATH 上找不到 java。" >&2
+    echo "请安装 Java 21 或更高版本, 或设置 JAVA_HOME / NATSURI_JAVA。" >&2
+    exit 1
+fi
+
+# -Dfile.encoding=UTF-8: JDK 18+ 本来就是这个默认值, 写出来是为了在更老的 JVM 上也别读错
+# natsuri.json 与清单里的中文。**不设 stdout/stderr 编码** —— 那两个应当跟随终端,
+# 强行设成 UTF-8 会在非 UTF-8 终端上把中文输出弄成乱码。
+exec "$JAVACMD" -Dfile.encoding=UTF-8 -jar "$APP_HOME/natsuri.jar" "$@"

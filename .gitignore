@@ -1,0 +1,27 @@
+.gradle/
+build/
+out/
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Kotlin 编译器状态目录
+.kotlin/
+
+# natsuri 自己在运行目录里的产物 —— 开发时容易顺手在仓库根跑一次
+/.natsuri/
+/natsuri.json
+
+# 如果在仓库里试跑过 Console, 这些是它的东西 —— 里面可能有登录票据
+/natsu.yml
+/bots/
+/config/
+/data/
+/plugins/
+/plugin-libraries/
+/plugin-shared-libraries/
+/logs/

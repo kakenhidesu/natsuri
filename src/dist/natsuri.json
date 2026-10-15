@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "index": null,
+    "manifest": "https://github.com/kakenhidesu/natsu/releases/download/natsu-prev/natsu-release.json",
+    "allowInsecure": false
+  },
+  "channel": "preview"
+}
